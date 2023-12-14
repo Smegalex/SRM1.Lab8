@@ -114,15 +114,18 @@ if __name__ == "__main__":
     V = orsOpening("<V>::=x|y")
     C = orsOpening("<C>::=1|2")
 
-    v1 = "x+(y+y)*y"
-    v19 = "x+(y+y)*y"
-    v25 = "2*y+2*(x+y+1)+x"
-    v1 = simplify_arythmetic_statement(v1)
-    v25 = simplify_arythmetic_statement(v25)
+    v1 = simplify_arythmetic_statement("x+(y+y)*y")
+    v19 = simplify_arythmetic_statement("x+(y+y)*y")
+    v25 = simplify_arythmetic_statement("2*y+2*(x+y+1)+x")
+
     finalNodeV1 = nodeForming(v1, E, V, C)
+    finalNodeV19 = nodeForming(v19, E, V, C)
     finalNodeV25 = nodeForming(v25, E, V, C)
     finalNodeV1.print()
     print("-".ljust(100, "-"))
+    finalNodeV19.print()
+    print("-".ljust(100, "-"))
+    print(v25)
     finalNodeV25.print()
 
 
