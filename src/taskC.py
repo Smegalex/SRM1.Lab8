@@ -1,3 +1,5 @@
+operations = ("^", "*", "/", "+", "-")
+
 possible_termVar_pairs = {'a': 'A', 'b': 'B', 'c': 'C'}
 possible_vars = ['F', 'R']
 
@@ -133,12 +135,28 @@ def find_index_of_occurence(simple_language: dict, terminal: str, occur_ind: int
     return temp_vars.index(terminal)
 
 
-def first_el_pow(simple_language: dict, recursion_pow: list) -> str:
+def pow_at_first_arg(simple_language: dict, recursion_pow: list, shift: int = 0) -> str:
     recursion_pow = ''.join(recursion_pow)
     if recursion_pow.count('n'):
-        recursion_pow.replace('n', simple_language['arguments']['n'])
+        recursion_pow = recursion_pow.replace(
+            'n', str(int(simple_language['arguments']['n'])+shift))
     elif recursion_pow.count('m'):
-        recursion_pow.replace('m', simple_language['arguments'][','])
+        recursion_pow.replace(
+            'm', str(int(simple_language['arguments']['m'])+shift))
+    recursion_pow = list(recursion_pow)
+    stop = False
+    while True:
+        for i in range(1, len(recursion_pow)):
+            if recursion_pow[i-1] not in operations and recursion_pow[i] not in operations:
+                recursion_pow.insert(i, '*')
+                break
+            if i == len(recursion_pow)-1:
+                stop = True
+        if stop:
+            break
+    recursion_pow = ''.join(recursion_pow)
+    recursion_pow = eval(recursion_pow)
+    return recursion_pow
 
 
 def create_rules(simple_language: dict, poss_vars: list = possible_vars) -> dict:
@@ -157,13 +175,15 @@ def create_rules(simple_language: dict, poss_vars: list = possible_vars) -> dict
         recursion_ind = temp_rule.index('')
         recursion_term = simple_language['terminals'][recursion_ind]
         recursion_pow = simple_language['language'][recursion_term][find_index_of_occurence(
-            simple_language, recursion_term, recursion_ind)]
+            simple_language, recursion_term, recursion_ind, 'terminals')]
         simple_language['variables'].append(poss_vars.pop(0))
         temp_rule[recursion_ind] = simple_language['variables'][-1]
         productionMultiplicity['S'] = temp_rule
+
         temp_rule = [''] * 2
         temp_rule[0] = simple_language['variables'][-1]
 
+        recursion_pow = pow_at_first_arg(simple_language, recursion_pow)
         temp_rule[1] = f'{recursion_term}^'
 
 
@@ -173,7 +193,15 @@ if __name__ == '__main__':
     v24 = simplify_brackets('L(G) = {(01)^(n)(12)^(n^(2)) | n >= 1}')
     v25 = simplify_brackets('L(G) = {1^(2)2^(n)0^(2n) | n >= 1}')
     create_rules(v1)
-    print(f'{v1}\n\n{v19}\n\n{v24}\n\n{v25}')
+    # print(f'{v1}\n\n{v19}\n\n{v24}\n\n{v25}')
+
+    print("v1 : L(G) = {2^(2n)1 | n >= 0}\n", "P = {S -> F1;\n",
+          "     F -> 2^(2)F;\n", "     F -> λ }\n\n")
+    print("v19: L(G) = {a^(2n+1)1^(2n)2^(m) | n, m >= 1}\n", "P = {S -> a^(2)Fa1^(2)R2;\n",
+          "     F -> a^(2)FO^(2);\n", "     O^(2)a -> aO^(2);\n", "     aO^(2) -> a1^(2);\n",
+          "     F -> λ;\n", "     R -> R2;\n", "     R -> λ }\n\n")
+    print("v25: L(G) = {1^(2)2^(n)0^(2n) | n >= 1}\n", "P = {S -> 1^(2)2F0^(2);\n",
+          "     F -> 2F0^(2);\n", "     F -> λ }\n")
 
 
 # G = {V, T, S, P}
@@ -185,9 +213,20 @@ if __name__ == '__main__':
 
 # v1 : L(G) = {2^(2n)1 | n >= 0}
 # P = {S -> F1;
-#      F -> λ;
-#      F -> 2^(2)F }
+#      F -> 2^(2)F;
+#      F -> λ }
 
 # v19: L(G) = {a^(2n+1)1^(2n)2^(m) | n, m >= 1}
+# P = {S -> a^(2)Fa1^(2)R2;
+#      F -> a^(2)FO^(2);
+#      O^(2)a -> aO^(2);
+#      aO^(2) -> a1^(2);
+#      F -> λ;
+#      R -> R2;
+#      R -> λ }
+
 # v24: L(G) = {(01)^(n)(12)^(n^(2)) | n >= 1}
 # v25: L(G) = {1^(2)2^(n)0^(2n) | n >= 1}
+# P = {S -> 1^(2)2F0^(2);
+#      F -> 2F0^(2);
+#      F -> λ }
