@@ -53,7 +53,11 @@ def simplify_brackets(language: str) -> dict:
             first_bracket = language[0].index('(')
             language[0][first_bracket:first_bracket +
                         pow_end_ind+2] = ''.ljust(len(language[0][first_bracket:first_bracket+pow_end_ind+2]))
-
+            try:
+                power = int(''.join(power))
+                power = str(power)
+            except ValueError:
+                pass
             destination.append(power)
             language[0][char_ind+1] = ' '
         elif language[0][char_ind] == '(':
@@ -94,13 +98,73 @@ def simplify_brackets(language: str) -> dict:
         language[0][char_ind] = ' '
     final_dict['variables'] = variables
     final_dict['terminals'] = terminals
+    final_dict = power_simplification(final_dict)
     return final_dict
 
 
-def create_rules(simple_language: dict) -> dict:
+def power_simplification(simple_language: dict) -> dict:
+    for terminal, powers in simple_language['language'].items():
+        for pow_ind in range(len(powers)):
+            power = ''.join(powers[pow_ind])
+            if power.count('+'):
+                split_power = power.split('+')
+                destination = simple_language['language'][terminal]
+
+                if len(split_power[0]) > 1:
+                    destination[pow_ind] = list(split_power[0])
+                elif len(split_power[0]) == 1:
+                    destination[pow_ind] = split_power[0]
+
+                simple_language['variables'].insert(
+                    find_index_of_occurence(simple_language, terminal, pow_ind, 'variables'), terminal)
+                simple_language['terminals'] = simple_language['variables'][1:]
+
+                if len(split_power[1]) > 1:
+                    destination.insert(pow_ind+1, list(split_power[1]))
+                elif len(split_power[1]) == 1:
+                    destination.insert(pow_ind+1, split_power[1])
+    return simple_language
+
+
+def find_index_of_occurence(simple_language: dict, terminal: str, occur_ind: int, arr: str) -> int:
+    temp_vars = simple_language[arr]
+    for i in range(occur_ind):
+        temp_vars[temp_vars.index(terminal)] = ''
+    return temp_vars.index(terminal)
+
+
+def first_el_pow(simple_language: dict, recursion_pow: list) -> str:
+    recursion_pow = ''.join(recursion_pow)
+    if recursion_pow.count('n'):
+        recursion_pow.replace('n', simple_language['arguments']['n'])
+    elif recursion_pow.count('m'):
+        recursion_pow.replace('m', simple_language['arguments'][','])
+
+
+def create_rules(simple_language: dict, poss_vars: list = possible_vars) -> dict:
     productionMultiplicity = {}
-    if list(simple_language['language'].items()).count(['1']):
-        pass
+    temp_rule = [''] * len(simple_language['terminals'])
+    for terminal, powers in simple_language['language'].items():
+        for pow_ind in range(len(powers)):
+            if not isinstance(powers[pow_ind], list):
+                if powers[pow_ind] != '1':
+                    temp_rule[find_index_of_occurence(
+                        simple_language, terminal, pow_ind, 'terminals')] = f'{terminal}^{powers[pow_ind]}'
+                elif powers[pow_ind] == '1':
+                    temp_rule[find_index_of_occurence(
+                        simple_language, terminal, pow_ind, 'terminals')] = f'{terminal}'
+    if temp_rule.count('') == 1:
+        recursion_ind = temp_rule.index('')
+        recursion_term = simple_language['terminals'][recursion_ind]
+        recursion_pow = simple_language['language'][recursion_term][find_index_of_occurence(
+            simple_language, recursion_term, recursion_ind)]
+        simple_language['variables'].append(poss_vars.pop(0))
+        temp_rule[recursion_ind] = simple_language['variables'][-1]
+        productionMultiplicity['S'] = temp_rule
+        temp_rule = [''] * 2
+        temp_rule[0] = simple_language['variables'][-1]
+
+        temp_rule[1] = f'{recursion_term}^'
 
 
 if __name__ == '__main__':
@@ -108,7 +172,7 @@ if __name__ == '__main__':
     v19 = simplify_brackets('L(G) = {a^(2n+1)1^(2n)2^(m) | n, m >= 1}')
     v24 = simplify_brackets('L(G) = {(01)^(n)(12)^(n^(2)) | n >= 1}')
     v25 = simplify_brackets('L(G) = {1^(2)2^(n)0^(2n) | n >= 1}')
-
+    create_rules(v1)
     print(f'{v1}\n\n{v19}\n\n{v24}\n\n{v25}')
 
 
