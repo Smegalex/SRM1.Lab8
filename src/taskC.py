@@ -1,7 +1,34 @@
 operations = ("^", "*", "/", "+", "-")
 
-possible_termVar_pairs = {'a': 'A', 'b': 'B', 'c': 'C'}
+possible_termVar_pairs = {'a': 'A', 'b': 'B',
+                          'c': 'C', '0': 'Z', '1': 'O', '2': 'T'}
 possible_vars = ['F', 'R']
+
+
+class Language:
+    language = {}
+    arguments = {}
+    variables = []
+    terminals = []
+
+    def __init__(self, *args) -> None:
+        if len(args) == 1:
+            self.dict_to_lang(args[0])
+            return
+        else:
+            fillable = [self.language, self.arguments,
+                        self.variables, self.terminals]
+            for arg_ind in range(len(args)):
+                fillable[arg_ind] = args[arg_ind]
+
+    def lang_to_dict(self) -> dict:
+        return {'language': self.language, 'arguments': self.arguments, 'variables': self.variables, 'terminals': self.terminals}
+
+    def dict_to_lang(self, dictionary: dict) -> None:
+        self.language = dictionary['language']
+        self.arguments = dictionary['arguments']
+        self.variables = dictionary['variables']
+        self.terminals = dictionary['terminals']
 
 
 def brackets_end_index(statement: list, brackets_ignor: int) -> int:
@@ -155,15 +182,54 @@ def pow_at_first_arg(simple_language: dict, recursion_pow: list, shift: int = 0)
         if stop:
             break
     recursion_pow = ''.join(recursion_pow)
-    recursion_pow = eval(recursion_pow)
+    recursion_pow = str(eval(recursion_pow))
     return recursion_pow
 
 
-def create_rules(simple_language: dict, poss_vars: list = possible_vars) -> dict:
+def create_rules(simple_language: dict, variable_name: str = None) -> dict:
+    print(simple_language)
     productionMultiplicity = {}
+    if len(simple_language['terminals']) == 1:
+        recursion_term = simple_language['terminals'][0]
+        recursion_pow = simple_language['language'][recursion_term][find_index_of_occurence(
+            simple_language, recursion_term, 0, 'terminals')]
+
+        if not variable_name:
+            if recursion_term in possible_termVar_pairs:
+                variable_name = possible_termVar_pairs[recursion_term]
+            else:
+                variable_name = possible_vars.pop(0)
+
+        # якщо степінь без n/m
+        if not isinstance(recursion_pow, list):
+            if recursion_pow != '1':
+                return {variable_name: f'{recursion_term}^{recursion_pow}'}
+            elif recursion_pow == '1':
+                return {variable_name: recursion_term}
+
+        # якщо степінь з n/m
+        first_pow = pow_at_first_arg(simple_language, recursion_pow)
+        if first_pow == 0:
+            shift = 0
+            while first_pow == 0:
+                shift += 1
+                first_pow = pow_at_first_arg(
+                    simple_language, recursion_pow, shift)
+            if first_pow == 1:
+                return {variable_name: [f'{recursion_term}{variable_name}', 'λ']}
+            else:
+                return {variable_name: [f'{recursion_term}^({first_pow}){variable_name}', 'λ']}
+
+        elif first_pow == 1:
+            return {'add_higher': recursion_term, variable_name: [f'{recursion_term}{variable_name}', 'λ']}
+        else:
+            return {'add_higher': f'{recursion_term}^{first_pow}', variable_name: [f'{recursion_term}^{first_pow}{variable_name}', 'λ']}
+
     temp_rule = [''] * len(simple_language['terminals'])
+
     for terminal, powers in simple_language['language'].items():
         for pow_ind in range(len(powers)):
+            # якщо степінь без n/m
             if not isinstance(powers[pow_ind], list):
                 if powers[pow_ind] != '1':
                     temp_rule[find_index_of_occurence(
@@ -171,11 +237,30 @@ def create_rules(simple_language: dict, poss_vars: list = possible_vars) -> dict
                 elif powers[pow_ind] == '1':
                     temp_rule[find_index_of_occurence(
                         simple_language, terminal, pow_ind, 'terminals')] = f'{terminal}'
-    if temp_rule.count('') == 1:
+
+    # пройтися по "дірках", де є степіні n або m
+    holes_indxs = []
+    for i in range(len(temp_rule)):
+        if temp_rule[i] == '':
+            if holes_indxs == []:
+                holes_indxs.append([])
+            holes_indxs[-1].append(i)
+
+        elif holes_indxs[-1] != []:
+            holes_indxs.append([])
+
+    print(simple_language)
+    return productionMultiplicity
+
+
+"""
+if len(simple_language['terminals']) == 1:
         recursion_ind = temp_rule.index('')
         recursion_term = simple_language['terminals'][recursion_ind]
         recursion_pow = simple_language['language'][recursion_term][find_index_of_occurence(
             simple_language, recursion_term, recursion_ind, 'terminals')]
+        simple_language['terminals'].pop(
+            recursion_ind)
         simple_language['variables'].append(poss_vars.pop(0))
         temp_rule[recursion_ind] = simple_language['variables'][-1]
         productionMultiplicity['S'] = temp_rule
@@ -184,24 +269,15 @@ def create_rules(simple_language: dict, poss_vars: list = possible_vars) -> dict
         temp_rule[0] = simple_language['variables'][-1]
 
         recursion_pow = pow_at_first_arg(simple_language, recursion_pow)
-        temp_rule[1] = f'{recursion_term}^'
-
+        temp_rule[1] = f'{recursion_term}^'"""
 
 if __name__ == '__main__':
     v1 = simplify_brackets('L(G) = {2^(2n)1 | n >= 0}')
     v19 = simplify_brackets('L(G) = {a^(2n+1)1^(2n)2^(m) | n, m >= 1}')
     v24 = simplify_brackets('L(G) = {(01)^(n)(12)^(n^(2)) | n >= 1}')
     v25 = simplify_brackets('L(G) = {1^(2)2^(n)0^(2n) | n >= 1}')
-    create_rules(v1)
+    print(create_rules(v1))
     # print(f'{v1}\n\n{v19}\n\n{v24}\n\n{v25}')
-
-    print("v1 : L(G) = {2^(2n)1 | n >= 0}\n", "P = {S -> F1;\n",
-          "     F -> 2^(2)F;\n", "     F -> λ }\n\n")
-    print("v19: L(G) = {a^(2n+1)1^(2n)2^(m) | n, m >= 1}\n", "P = {S -> a^(2)Fa1^(2)R2;\n",
-          "     F -> a^(2)FO^(2);\n", "     O^(2)a -> aO^(2);\n", "     aO^(2) -> a1^(2);\n",
-          "     F -> λ;\n", "     R -> R2;\n", "     R -> λ }\n\n")
-    print("v25: L(G) = {1^(2)2^(n)0^(2n) | n >= 1}\n", "P = {S -> 1^(2)2F0^(2);\n",
-          "     F -> 2F0^(2);\n", "     F -> λ }\n")
 
 
 # G = {V, T, S, P}
