@@ -78,7 +78,7 @@ def print_nfa_table(nfa_table):
 
     for state, transitions in nfa_table.items():
         print(f"| {state} | " + " | ".join([" ".join(sorted(dest)) if dest else '-' for dest in transitions.values()]) + " |")
-        print(header)  # Додано цей рядок для відокремлення рядків таблиці
+        print(header)  
 
 
 nfa_diagram, nfa_table = build_nfa1(grammar)
