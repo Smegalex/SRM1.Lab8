@@ -2,7 +2,7 @@ operations = ("^", "*", "/", "+", "-")
 
 possible_termVar_pairs = {'a': 'A', 'b': 'B',
                           'c': 'C', '0': 'Z', '1': 'O', '2': 'T'}
-possible_vars = ['F', 'R']
+possible_vars = ['S', 'F', 'R']
 
 
 class Language:
@@ -155,11 +155,16 @@ def power_simplification(simple_language: dict) -> dict:
     return simple_language
 
 
-def find_index_of_occurence(simple_language: dict, terminal: str, occur_ind: int, arr: str) -> int:
-    temp_vars = simple_language[arr]
-    for i in range(occur_ind):
-        temp_vars[temp_vars.index(terminal)] = ''
-    return temp_vars.index(terminal)
+# знайти індекс в terms/vars мови для конкретного повторення степеня
+def find_index_of_occurence(simple_language: dict, term: str, occur_ind: int, arr: str, direction: int = 1) -> int:
+    if direction == 1:
+        temp_vars = simple_language[arr]
+        for i in range(occur_ind):
+            temp_vars[temp_vars.index(term)] = ''
+        return temp_vars.index(term)
+    if direction == -1:
+        temp_vars = simple_language[arr][:occur_ind]
+        return temp_vars.count(term)
 
 
 def pow_at_first_arg(simple_language: dict, recursion_pow: list, shift: int = 0) -> str:
@@ -186,13 +191,40 @@ def pow_at_first_arg(simple_language: dict, recursion_pow: list, shift: int = 0)
     return recursion_pow
 
 
+def merge_languages(main_productionMultiplicity: dict, added_productionMultiplicity: dict, name_higher: str or None = None, index_add: int = 0) -> dict:
+    if len(added_productionMultiplicity) == 1:
+        return {**main_productionMultiplicity, **added_productionMultiplicity}
+    elif name_higher:
+        main_productionMultiplicity[name_higher][
+            index_add] = f'{added_productionMultiplicity.pop("add_higher")}{list(added_productionMultiplicity.items())[0][0]}'
+        print({**main_productionMultiplicity, **added_productionMultiplicity})
+        return {**main_productionMultiplicity, **added_productionMultiplicity}
+
+
+def first_power_check(simple_language: dict, recursion_pow: list, variable_name: str, recursion_term: str) -> dict:
+    first_pow = pow_at_first_arg(simple_language, recursion_pow)
+    if first_pow == '0':
+        shift = 0
+        while first_pow == '0':
+            shift += 1
+            first_pow = pow_at_first_arg(
+                simple_language, recursion_pow, shift)
+        if first_pow == '1':
+            return {'add_higher': '', variable_name: [f'{recursion_term}{variable_name}', 'λ']}
+        else:
+            return {'add_higher': '', variable_name: [f'{recursion_term}^({first_pow}){variable_name}', 'λ']}
+
+    elif first_pow == '1':
+        return {'add_higher': 'recursion_term', variable_name: [f'{recursion_term}{variable_name}', 'λ']}
+    else:
+        return {'add_higher': f'{recursion_term}^{first_pow}', variable_name: [f'{recursion_term}^{first_pow}{variable_name}', 'λ']}
+
+
 def create_rules(simple_language: dict, variable_name: str = None) -> dict:
-    print(simple_language)
     productionMultiplicity = {}
     if len(simple_language['terminals']) == 1:
         recursion_term = simple_language['terminals'][0]
-        recursion_pow = simple_language['language'][recursion_term][find_index_of_occurence(
-            simple_language, recursion_term, 0, 'terminals')]
+        recursion_pow = simple_language['language'][recursion_term][0]
 
         if not variable_name:
             if recursion_term in possible_termVar_pairs:
@@ -200,33 +232,11 @@ def create_rules(simple_language: dict, variable_name: str = None) -> dict:
             else:
                 variable_name = possible_vars.pop(0)
 
-        # якщо степінь без n/m
-        if not isinstance(recursion_pow, list):
-            if recursion_pow != '1':
-                return {variable_name: f'{recursion_term}^{recursion_pow}'}
-            elif recursion_pow == '1':
-                return {variable_name: recursion_term}
-
-        # якщо степінь з n/m
-        first_pow = pow_at_first_arg(simple_language, recursion_pow)
-        if first_pow == 0:
-            shift = 0
-            while first_pow == 0:
-                shift += 1
-                first_pow = pow_at_first_arg(
-                    simple_language, recursion_pow, shift)
-            if first_pow == 1:
-                return {variable_name: [f'{recursion_term}{variable_name}', 'λ']}
-            else:
-                return {variable_name: [f'{recursion_term}^({first_pow}){variable_name}', 'λ']}
-
-        elif first_pow == 1:
-            return {'add_higher': recursion_term, variable_name: [f'{recursion_term}{variable_name}', 'λ']}
-        else:
-            return {'add_higher': f'{recursion_term}^{first_pow}', variable_name: [f'{recursion_term}^{first_pow}{variable_name}', 'λ']}
+        return first_power_check(simple_language, recursion_pow, variable_name, recursion_term)
 
     temp_rule = [''] * len(simple_language['terminals'])
 
+    print(simple_language['language'].items())
     for terminal, powers in simple_language['language'].items():
         for pow_ind in range(len(powers)):
             # якщо степінь без n/m
@@ -238,16 +248,63 @@ def create_rules(simple_language: dict, variable_name: str = None) -> dict:
                     temp_rule[find_index_of_occurence(
                         simple_language, terminal, pow_ind, 'terminals')] = f'{terminal}'
 
-    # пройтися по "дірках", де є степіні n або m
+    # записати "дірки" (місця, де степіь має в собі n або m)
     holes_indxs = []
+    temp_rule_reduced_holes = []
     for i in range(len(temp_rule)):
         if temp_rule[i] == '':
             if holes_indxs == []:
                 holes_indxs.append([])
             holes_indxs[-1].append(i)
-
-        elif holes_indxs[-1] != []:
+            continue
+        try:
+            if holes_indxs[-1] != []:
+                temp_rule_reduced_holes.append('')
+                raise IndexError
+        except IndexError:
             holes_indxs.append([])
+
+        temp_rule_reduced_holes.append(temp_rule[i])
+    if holes_indxs[-1] == []:
+        holes_indxs = holes_indxs[:-1]
+    else:
+        temp_rule_reduced_holes.append('')
+
+    if not variable_name:
+        variable_name = possible_vars.pop(0)
+
+    productionMultiplicity = {variable_name: temp_rule_reduced_holes}
+
+    if len(holes_indxs) == 1:
+        termPower_couples = {}
+
+        for hole_el_ind in holes_indxs[0]:
+            current_term = simple_language['terminals'][hole_el_ind]
+            current_power = simple_language['language'][current_term][find_index_of_occurence(
+                simple_language, current_term, hole_el_ind, 'terminals', -1)]
+            termPower_couples[current_term] = current_power
+
+        powers = list(termPower_couples.values())
+        if (powers.count('n') and not powers.count('m')) or (powers.count('m') and not powers.count('n')):
+            for power in powers:
+                term = simple_language['terminals'][powers.index(power)]
+                first_power_check(simple_language, power,
+                                  variable_name, term)
+        else:
+            pass
+
+    # пройтися по "дірках", де є степіні n або m
+    for hole in holes_indxs:
+        adding_lang = {'language': {
+        }, 'arguments': simple_language['arguments'], 'variables': simple_language['variables'], 'terminals': []}
+        for hole_el_ind in hole:
+            current_term = simple_language['terminals'][hole_el_ind]
+            current_power = simple_language['language'][current_term][find_index_of_occurence(
+                simple_language, current_term, hole_el_ind, 'terminals', -1)]
+            adding_lang['language'][current_term] = [current_power]
+            adding_lang['terminals'].append(current_term)
+        productionMultiplicity = merge_languages(
+            productionMultiplicity, create_rules(adding_lang), variable_name, holes_indxs.index(hole))
 
     print(simple_language)
     return productionMultiplicity
@@ -277,6 +334,7 @@ if __name__ == '__main__':
     v24 = simplify_brackets('L(G) = {(01)^(n)(12)^(n^(2)) | n >= 1}')
     v25 = simplify_brackets('L(G) = {1^(2)2^(n)0^(2n) | n >= 1}')
     print(create_rules(v1))
+    print(create_rules(v25))
     # print(f'{v1}\n\n{v19}\n\n{v24}\n\n{v25}')
 
 
