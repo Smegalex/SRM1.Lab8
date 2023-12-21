@@ -2,7 +2,7 @@ operations = ("^", "*", "/", "+", "-")
 
 possible_termVar_pairs = {'a': 'A', 'b': 'B',
                           'c': 'C', '0': 'Z', '1': 'O', '2': 'T'}
-possible_vars = ['S', 'F', 'R']
+possible_vars = ['S', 'F', 'R', 'Q', 'K', 'Y']
 
 
 class Language:
@@ -184,24 +184,32 @@ def pow_at_first_arg(simple_language: dict, recursion_pow: list, shift: int = 0)
                 break
             if i == len(recursion_pow)-1:
                 stop = True
-        if stop:
+        if stop or len(recursion_pow) == 1:
             break
     recursion_pow = ''.join(recursion_pow)
     recursion_pow = str(eval(recursion_pow))
     return recursion_pow
 
 
-def merge_languages(main_productionMultiplicity: dict, added_productionMultiplicity: dict, name_higher: str or None = None, index_add: int = 0) -> dict:
-    if len(added_productionMultiplicity) == 1:
-        return {**main_productionMultiplicity, **added_productionMultiplicity}
-    elif name_higher:
-        main_productionMultiplicity[name_higher][
-            index_add] = f'{added_productionMultiplicity.pop("add_higher")}{list(added_productionMultiplicity.items())[0][0]}'
-        print({**main_productionMultiplicity, **added_productionMultiplicity})
-        return {**main_productionMultiplicity, **added_productionMultiplicity}
+def merge_languages(main_productionMultiplicity: dict, added_productionMultiplicity: dict,
+                    name_higher: str or None = None, index_add: int = 0, hierarchy: int = 1, more_productionMultiplicities: list = []) -> dict:
+    if hierarchy == 1:
+        if len(added_productionMultiplicity) == 1:
+            return {**main_productionMultiplicity, **added_productionMultiplicity}
+        if name_higher:
+            main_productionMultiplicity[name_higher][
+                index_add] = f'{added_productionMultiplicity.pop("add_higher")}{list(added_productionMultiplicity.items())[0][0]}'
+            print({**main_productionMultiplicity, **added_productionMultiplicity})
+            return {**main_productionMultiplicity, **added_productionMultiplicity}
+    if hierarchy == 0:
+        add_higher = f'{main_productionMultiplicity["add_higher"]}{list(added_productionMultiplicity.items())[1][0]}{added_productionMultiplicity["add_higher"]}'
+        variable_name = list(main_productionMultiplicity.keys())[1]
+        main_body = list(set(main_productionMultiplicity[variable_name] +
+                             added_productionMultiplicity[variable_name]))
+        return {'add_higher': add_higher, variable_name: main_body}
 
 
-def first_power_check(simple_language: dict, recursion_pow: list, variable_name: str, recursion_term: str) -> dict:
+def first_power_check(simple_language: dict, recursion_pow: list, variable_name: str, recursion_term: str, count: int = 0) -> dict:
     first_pow = pow_at_first_arg(simple_language, recursion_pow)
     if first_pow == '0':
         shift = 0
@@ -210,13 +218,21 @@ def first_power_check(simple_language: dict, recursion_pow: list, variable_name:
             first_pow = pow_at_first_arg(
                 simple_language, recursion_pow, shift)
         if first_pow == '1':
+            if count != 0:
+                return {'add_higher': '', variable_name: [f'{variable_name}{recursion_term}', 'λ']}
             return {'add_higher': '', variable_name: [f'{recursion_term}{variable_name}', 'λ']}
         else:
+            if count != 0:
+                return {'add_higher': '', variable_name: [f'{variable_name}{recursion_term}^({first_pow})', 'λ']}
             return {'add_higher': '', variable_name: [f'{recursion_term}^({first_pow}){variable_name}', 'λ']}
 
     elif first_pow == '1':
-        return {'add_higher': 'recursion_term', variable_name: [f'{recursion_term}{variable_name}', 'λ']}
+        if count != 0:
+            return {'add_higher': recursion_term, variable_name: [f'{variable_name}{recursion_term}', 'λ']}
+        return {'add_higher': recursion_term, variable_name: [f'{recursion_term}{variable_name}', 'λ']}
     else:
+        if count != 0:
+            return {'add_higher': f'{recursion_term}^{first_pow}', variable_name: [f'{variable_name}{recursion_term}^{first_pow}', 'λ']}
         return {'add_higher': f'{recursion_term}^{first_pow}', variable_name: [f'{recursion_term}^{first_pow}{variable_name}', 'λ']}
 
 
@@ -275,21 +291,31 @@ def create_rules(simple_language: dict, variable_name: str = None) -> dict:
 
     productionMultiplicity = {variable_name: temp_rule_reduced_holes}
 
-    if len(holes_indxs) == 1:
+    if len(holes_indxs) == 1 and not len(holes_indxs[0]) == 1:
+        low_variable_name = possible_vars.pop(0)
         termPower_couples = {}
-
+        powers_contain = []
         for hole_el_ind in holes_indxs[0]:
             current_term = simple_language['terminals'][hole_el_ind]
             current_power = simple_language['language'][current_term][find_index_of_occurence(
                 simple_language, current_term, hole_el_ind, 'terminals', -1)]
+            if current_power.count('n') and 'n' not in powers_contain:
+                powers_contain.append('n')
+            if current_power.count('m') and 'm' not in powers_contain:
+                powers_contain.append('m')
             termPower_couples[current_term] = current_power
 
         powers = list(termPower_couples.values())
-        if (powers.count('n') and not powers.count('m')) or (powers.count('m') and not powers.count('n')):
-            for power in powers:
-                term = simple_language['terminals'][powers.index(power)]
-                first_power_check(simple_language, power,
-                                  variable_name, term)
+        if len(powers_contain) < 2:
+            rules = []
+            i = 0
+            for term, power in termPower_couples.items():
+                rule = first_power_check(simple_language, power,
+                                         low_variable_name, term, i)
+                rules.append(rule)
+                i += 1
+            rules = merge_languages(rules[0], rules[1], None, 0, 0)
+
         else:
             pass
 
@@ -333,7 +359,7 @@ if __name__ == '__main__':
     v19 = simplify_brackets('L(G) = {a^(2n+1)1^(2n)2^(m) | n, m >= 1}')
     v24 = simplify_brackets('L(G) = {(01)^(n)(12)^(n^(2)) | n >= 1}')
     v25 = simplify_brackets('L(G) = {1^(2)2^(n)0^(2n) | n >= 1}')
-    print(create_rules(v1))
+    # print(create_rules(v1))
     print(create_rules(v25))
     # print(f'{v1}\n\n{v19}\n\n{v24}\n\n{v25}')
 
