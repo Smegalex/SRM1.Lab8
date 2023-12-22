@@ -1,34 +1,20 @@
+import copy
+
 operations = ("^", "*", "/", "+", "-")
 
 possible_termVar_pairs = {'a': 'A', 'b': 'B',
                           'c': 'C', '0': 'Z', '1': 'O', '2': 'T'}
+
 possible_vars = ['S', 'F', 'R', 'Q', 'K', 'Y']
+reference_vars = tuple(possible_vars)
 
 
-class Language:
-    language = {}
-    arguments = {}
-    variables = []
-    terminals = []
-
-    def __init__(self, *args) -> None:
-        if len(args) == 1:
-            self.dict_to_lang(args[0])
-            return
-        else:
-            fillable = [self.language, self.arguments,
-                        self.variables, self.terminals]
-            for arg_ind in range(len(args)):
-                fillable[arg_ind] = args[arg_ind]
-
-    def lang_to_dict(self) -> dict:
-        return {'language': self.language, 'arguments': self.arguments, 'variables': self.variables, 'terminals': self.terminals}
-
-    def dict_to_lang(self, dictionary: dict) -> None:
-        self.language = dictionary['language']
-        self.arguments = dictionary['arguments']
-        self.variables = dictionary['variables']
-        self.terminals = dictionary['terminals']
+def listRepitition_elimination(arr: list) -> list:
+    no_rep_list = []
+    for el in arr:
+        if not el in no_rep_list:
+            no_rep_list.append(el)
+    return no_rep_list
 
 
 def brackets_end_index(statement: list, brackets_ignor: int) -> int:
@@ -199,13 +185,24 @@ def merge_languages(main_productionMultiplicity: dict, added_productionMultiplic
         if name_higher:
             main_productionMultiplicity[name_higher][
                 index_add] = f'{added_productionMultiplicity.pop("add_higher")}{list(added_productionMultiplicity.items())[0][0]}'
-            print({**main_productionMultiplicity, **added_productionMultiplicity})
+            # print({**main_productionMultiplicity, **added_productionMultiplicity})
             return {**main_productionMultiplicity, **added_productionMultiplicity}
     if hierarchy == 0:
         add_higher = f'{main_productionMultiplicity["add_higher"]}{list(added_productionMultiplicity.items())[1][0]}{added_productionMultiplicity["add_higher"]}'
         variable_name = list(main_productionMultiplicity.keys())[1]
-        main_body = list(set(main_productionMultiplicity[variable_name] +
-                             added_productionMultiplicity[variable_name]))
+        main_body = listRepitition_elimination(main_productionMultiplicity[variable_name] +
+                                               added_productionMultiplicity[variable_name])
+        buff_main_body = []
+        start = None
+        for i in range(len(main_body)):
+            if main_body[i][0] == variable_name and start != None:
+                buff_main_body[start] += main_body[i][1:]
+                continue
+            if main_body[i][-1] == variable_name:
+                start = i
+            buff_main_body.append(main_body[i])
+        main_body = buff_main_body
+
         return {'add_higher': add_higher, variable_name: main_body}
 
 
@@ -236,7 +233,7 @@ def first_power_check(simple_language: dict, recursion_pow: list, variable_name:
         return {'add_higher': f'{recursion_term}^{first_pow}', variable_name: [f'{recursion_term}^{first_pow}{variable_name}', 'λ']}
 
 
-def create_rules(simple_language: dict, variable_name: str = None) -> dict:
+def create_rules(simple_language: dict, variable_name: str = None, top_var: str = None) -> dict:
     productionMultiplicity = {}
     if len(simple_language['terminals']) == 1:
         recursion_term = simple_language['terminals'][0]
@@ -252,17 +249,19 @@ def create_rules(simple_language: dict, variable_name: str = None) -> dict:
 
     temp_rule = [''] * len(simple_language['terminals'])
 
-    print(simple_language['language'].items())
+    # print(simple_language['language'].items())
     for terminal, powers in simple_language['language'].items():
         for pow_ind in range(len(powers)):
             # якщо степінь без n/m
             if not isinstance(powers[pow_ind], list):
+                simple_language_buff = copy.deepcopy(simple_language)
                 if powers[pow_ind] != '1':
                     temp_rule[find_index_of_occurence(
                         simple_language, terminal, pow_ind, 'terminals')] = f'{terminal}^{powers[pow_ind]}'
                 elif powers[pow_ind] == '1':
                     temp_rule[find_index_of_occurence(
                         simple_language, terminal, pow_ind, 'terminals')] = f'{terminal}'
+                simple_language = simple_language_buff
 
     # записати "дірки" (місця, де степіь має в собі n або m)
     holes_indxs = []
@@ -291,8 +290,7 @@ def create_rules(simple_language: dict, variable_name: str = None) -> dict:
 
     productionMultiplicity = {variable_name: temp_rule_reduced_holes}
 
-    if len(holes_indxs) == 1 and not len(holes_indxs[0]) == 1:
-        low_variable_name = possible_vars.pop(0)
+    if len(holes_indxs) == 1 and not len(holes_indxs[0]) == 1 and not variable_name == 'S':
         termPower_couples = {}
         powers_contain = []
         for hole_el_ind in holes_indxs[0]:
@@ -311,11 +309,12 @@ def create_rules(simple_language: dict, variable_name: str = None) -> dict:
             i = 0
             for term, power in termPower_couples.items():
                 rule = first_power_check(simple_language, power,
-                                         low_variable_name, term, i)
+                                         variable_name, term, i)
                 rules.append(rule)
                 i += 1
             rules = merge_languages(rules[0], rules[1], None, 0, 0)
 
+            return rules
         else:
             pass
 
@@ -330,37 +329,21 @@ def create_rules(simple_language: dict, variable_name: str = None) -> dict:
             adding_lang['language'][current_term] = [current_power]
             adding_lang['terminals'].append(current_term)
         productionMultiplicity = merge_languages(
-            productionMultiplicity, create_rules(adding_lang), variable_name, holes_indxs.index(hole))
+            productionMultiplicity, create_rules(adding_lang), variable_name, temp_rule_reduced_holes.index(''))
 
-    print(simple_language)
+   # print(simple_language)
     return productionMultiplicity
 
-
-"""
-if len(simple_language['terminals']) == 1:
-        recursion_ind = temp_rule.index('')
-        recursion_term = simple_language['terminals'][recursion_ind]
-        recursion_pow = simple_language['language'][recursion_term][find_index_of_occurence(
-            simple_language, recursion_term, recursion_ind, 'terminals')]
-        simple_language['terminals'].pop(
-            recursion_ind)
-        simple_language['variables'].append(poss_vars.pop(0))
-        temp_rule[recursion_ind] = simple_language['variables'][-1]
-        productionMultiplicity['S'] = temp_rule
-
-        temp_rule = [''] * 2
-        temp_rule[0] = simple_language['variables'][-1]
-
-        recursion_pow = pow_at_first_arg(simple_language, recursion_pow)
-        temp_rule[1] = f'{recursion_term}^'"""
 
 if __name__ == '__main__':
     v1 = simplify_brackets('L(G) = {2^(2n)1 | n >= 0}')
     v19 = simplify_brackets('L(G) = {a^(2n+1)1^(2n)2^(m) | n, m >= 1}')
     v24 = simplify_brackets('L(G) = {(01)^(n)(12)^(n^(2)) | n >= 1}')
     v25 = simplify_brackets('L(G) = {1^(2)2^(n)0^(2n) | n >= 1}')
-    # print(create_rules(v1))
-    print(create_rules(v25))
+    print("v1:\n", create_rules(v1), "\n\n")
+    possible_vars = ['S', 'F', 'R', 'Q', 'K', 'Y']
+    print("v25:\n", create_rules(v25), "\n\n")
+    print("v19:\n", create_rules(v19), "\n\n")
     # print(f'{v1}\n\n{v19}\n\n{v24}\n\n{v25}')
 
 
@@ -390,3 +373,45 @@ if __name__ == '__main__':
 # P = {S -> 1^(2)2F0^(2);
 #      F -> 2F0^(2);
 #      F -> λ }
+"""
+if len(simple_language['terminals']) == 1:
+        recursion_ind = temp_rule.index('')
+        recursion_term = simple_language['terminals'][recursion_ind]
+        recursion_pow = simple_language['language'][recursion_term][find_index_of_occurence(
+            simple_language, recursion_term, recursion_ind, 'terminals')]
+        simple_language['terminals'].pop(
+            recursion_ind)
+        simple_language['variables'].append(poss_vars.pop(0))
+        temp_rule[recursion_ind] = simple_language['variables'][-1]
+        productionMultiplicity['S'] = temp_rule
+
+        temp_rule = [''] * 2
+        temp_rule[0] = simple_language['variables'][-1]
+
+        recursion_pow = pow_at_first_arg(simple_language, recursion_pow)
+        temp_rule[1] = f'{recursion_term}^'"""
+"""
+class Language:
+    language = {}
+    arguments = {}
+    variables = []
+    terminals = []
+
+    def __init__(self, *args) -> None:
+        if len(args) == 1:
+            self.dict_to_lang(args[0])
+            return
+        else:
+            fillable = [self.language, self.arguments,
+                        self.variables, self.terminals]
+            for arg_ind in range(len(args)):
+                fillable[arg_ind] = args[arg_ind]
+
+    def lang_to_dict(self) -> dict:
+        return {'language': self.language, 'arguments': self.arguments, 'variables': self.variables, 'terminals': self.terminals}
+
+    def dict_to_lang(self, dictionary: dict) -> None:
+        self.language = dictionary['language']
+        self.arguments = dictionary['arguments']
+        self.variables = dictionary['variables']
+        self.terminals = dictionary['terminals']"""
