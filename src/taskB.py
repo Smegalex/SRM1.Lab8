@@ -20,7 +20,7 @@ def generate_language(start_symbol, production_rules, depth):
 
 generated_language = generate_language(grammar['S'], grammar['P'], 3)
 
-print(Fore.GREEN + "1. Мова, породжена граматикою G:")
+print("1. Мова, породжена граматикою G:")
 for string in generated_language:
     print(string)
 
