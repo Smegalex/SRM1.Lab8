@@ -1,5 +1,3 @@
-from colorama import Fore, Style
-
 
 grammar = {
     'V': {'0', '1', 'S', 'A', 'B'},
@@ -28,18 +26,18 @@ for string in generated_language:
 
 def get_grammar_type(grammar):
     if all(any(len(production) >= len(lhs) and lhs in production for production in productions) for lhs, productions in grammar['P'].items()):
-        return f"{Style.BRIGHT}{Fore.GREEN}Контекстно-залежна граматика"
+        return f"Контекстно-залежна граматика"
 
     if all(all((symbol in grammar['V'] or symbol == 'ε') for symbol in production) for productions in grammar['P'].values() for production in productions):
-        return f"{Style.BRIGHT}{Fore.GREEN}Контекстно-вільна граматика"
+        return f"Контекстно-вільна граматика"
 
     if all(all((len(symbol) == 1 and (symbol in grammar['V'] or symbol in grammar['T'])) or symbol == 'ε' for symbol in production) for productions in grammar['P'].values() for production in productions):
-        return f"{Style.BRIGHT}{Fore.GREEN}Регулярна граматика"
+        return f"Регулярна граматика"
 
-    return f"{Style.BRIGHT}{Fore.RED}Не визначено"
+    return f"Не визначено"
 
 
-print(Style.BRIGHT + Fore.RED + "2. Тип граматики:")
+print("2. Тип граматики:")
 print(f"{get_grammar_type(grammar)}")
 
 
